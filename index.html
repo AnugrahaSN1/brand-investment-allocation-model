@@ -1,0 +1,44 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Brand Investment Allocation Model</title>
+<style>
+:root{--navy:#1F3A5F;--gold:#B8893E;--grey:#555;--bg:#fff;--card:#f6f4ef;--ink:#1c1c1c}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14181f;--card:#1d232d;--ink:#e8e8e8;--grey:#aab;--navy:#8fb0dc}}
+body{margin:0;font:14px/1.45 Calibri,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#1F3A5F;color:#fff;padding:14px 20px}h1{margin:0;font-size:20px}header p{margin:2px 0 0;color:#e3c98f;font-size:12px}
+main{display:grid;grid-template-columns:270px 1fr;gap:16px;padding:16px 20px;max-width:1100px;margin:auto}
+@media(max-width:760px){main{grid-template-columns:1fr}}
+.card{background:var(--card);border-radius:8px;padding:12px 14px}label{display:block;margin-top:8px;font-weight:600;color:var(--navy)}
+output{float:right;font-weight:400;color:var(--ink)}input[type=range]{width:100%}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}.k{background:var(--card);border-radius:8px;padding:10px}
+.k b{display:block;font-size:20px;color:var(--navy)}.k span{font-size:11px;color:var(--grey)}
+.alt{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px}
+svg{width:100%;height:auto;background:var(--card);border-radius:8px;margin-bottom:12px}
+text{fill:var(--ink);font-size:11px}small{color:var(--grey)}
+</style></head><body>
+<header><h1>Brand Investment Allocation Model</h1><p>Where should an extra brand-investment budget go? Division data: L'Oréal H1 2026 results. Response curves are illustrative assumptions. Independent student project, not affiliated with or endorsed by L'Oréal.</p></header>
+<main><div class="card" id="ctl"></div><div><div class="kpis" id="k"></div><svg id="c1" viewBox="0 0 640 230"></svg><svg id="c2" viewBox="0 0 640 200"></svg><p id="msg"></p></div></main>
+<script>
+const DIV=[["Dermatological Beauty",4215.8,11.3],["Professional Products",2920.8,12.6],["L'Oréal Luxe",7996.7,5.4],["Consumer Products",8642.8,4.1]];
+const P={B:330,roi:1.0,sat:1.5,gm:74,carry:60,alike:false};
+const defs=[["B","Extra budget (EUR m)",50,800,10],["roi","First-euro return (sales per EUR)",0.4,2,0.1],["sat","Saturation (% of division sales)",0.5,4,0.1],["gm","Gross margin (%)",50,90,1],["carry","Persistence per year (%)",0,90,5]];
+const ctl=document.getElementById('ctl');
+ctl.innerHTML=defs.map(d=>`<label>${d[1]}<output id="o_${d[0]}"></output></label><input type=range id="s_${d[0]}" min=${d[2]} max=${d[3]} step=${d[4]} value=${P[d[0]]}>`).join('')+`<div class="alt"><input type=checkbox id="alike"><label for="alike" style="margin:0">Every division responds alike</label></div><p><small>Change any input: all figures and charts recalculate.</small></p>`;
+function model(){const S=DIV.reduce((a,d)=>a+2*d[1],0),avgS=S/4,g0=6.8;
+ const dv=DIV.map(d=>{const s=2*d[1];return{n:d[0],S:s,r:P.alike?P.roi:P.roi*d[2]/g0,K:P.alike?P.sat/100*avgS:P.sat/100*s}});
+ const pro=dv.map(d=>P.B*d.S/S);let lo=0,hi=Math.max(...dv.map(d=>d.r)),foc;
+ for(let i=0;i<200;i++){const l=(lo+hi)/2;foc=dv.map(d=>d.r>l?d.K*Math.log(d.r/l):0);if(foc.reduce((a,b)=>a+b)>P.B)lo=l;else hi=l}
+ const ev=x=>{const inc=dv.reduce((a,d,i)=>a+d.r*d.K*(1-Math.exp(-x[i]/d.K)),0),sp=x.reduce((a,b)=>a+b,0),gm=P.gm/100,c=P.carry/100;
+  const cum=[];let s=-sp;for(let t=0;t<3;t++){s+=inc*gm*Math.pow(c,t);cum.push(s)}return{x,inc,gp:inc/S*100,cum}};
+ return{dv,pro:ev(pro),foc:ev(foc)}}
+function bars(M){const W=640,H=230,m={l:40,b:50,t:30},mx=Math.max(...M.pro.x,...M.foc.x,1)*1.15,bw=34,gw=W/4;let s=`<text x=10 y=16 font-weight=700>Where the extra budget goes (EUR m)</text>`;
+ M.dv.forEach((d,i)=>{[[M.pro.x[i],'#B8893E',-bw],[M.foc.x[i],'#1F3A5F',2]].forEach(([v,c,o])=>{const h=v/mx*(H-m.b-m.t),x=i*gw+gw/2+o,y=H-m.b-h;s+=`<rect x=${x} y=${y} width=${bw} height=${h} fill="${c}"/><text x=${x+bw/2} y=${y-3} text-anchor=middle>${v.toFixed(0)}</text>`});s+=`<text x=${i*gw+gw/2} y=${H-30} text-anchor=middle>${d.n}</text>`});
+ s+=`<rect x=${W-190} y=8 width=10 height=10 fill="#B8893E"/><text x=${W-176} y=17>Pro rata</text><rect x=${W-110} y=8 width=10 height=10 fill="#1F3A5F"/><text x=${W-96} y=17>Focused</text>`;document.getElementById('c1').innerHTML=s}
+function lines(M){const W=640,H=200,l=50,r=30,t=34,b=30,all=[...M.pro.cum,...M.foc.cum,0],mn=Math.min(...all),mx=Math.max(...all),sy=v=>t+(mx-v)/(mx-mn||1)*(H-t-b),sx=i=>l+i*(W-l-r)/2;
+ let s=`<text x=10 y=16 font-weight=700>Cumulative profit, EUR m (costly in year one, builds with persistence)</text><line x1=${l} x2=${W-r} y1=${sy(0)} y2=${sy(0)} stroke="#888" stroke-dasharray="3"/>`;
+ [[M.pro,'#B8893E'],[M.foc,'#1F3A5F']].forEach(([E,c])=>{s+=`<polyline fill=none stroke="${c}" stroke-width=2 points="${E.cum.map((v,i)=>sx(i)+','+sy(v)).join(' ')}"/>`+E.cum.map((v,i)=>`<circle cx=${sx(i)} cy=${sy(v)} r=3 fill="${c}"/><text x=${sx(i)} y=${sy(v)-7} text-anchor=middle>${v.toFixed(0)}</text>`).join('')});
+ ['Year 1','Year 2','Year 3'].forEach((y,i)=>s+=`<text x=${sx(i)} y=${H-8} text-anchor=middle>${y}</text>`);document.getElementById('c2').innerHTML=s}
+function render(){defs.forEach(d=>{P[d[0]]=+document.getElementById('s_'+d[0]).value;document.getElementById('o_'+d[0]).textContent=P[d[0]]});P.alike=document.getElementById('alike').checked;
+ const M=model(),ratio=M.foc.inc/M.pro.inc;document.getElementById('k').innerHTML=[[ratio.toFixed(2)+'×','Focused vs pro rata growth'],[M.foc.gp.toFixed(2)+' pts','Group growth, focused'],[M.pro.gp.toFixed(2)+' pts','Group growth, pro rata'],[M.foc.cum[2].toFixed(0),'3-year profit, focused (EUR m)']].map(a=>`<div class=k><b>${a[0]}</b><span>${a[1]}</span></div>`).join('');
+ bars(M);lines(M);document.getElementById('msg').innerHTML=`<small>Year-one net: ${M.foc.cum[0].toFixed(0)} focused vs ${M.pro.cum[0].toFixed(0)} pro rata (EUR m). Illustrative assumptions, not L'Oréal data.</small>`}
+document.querySelectorAll('input').forEach(e=>e.addEventListener('input',render));render();
+</script></body></html>
